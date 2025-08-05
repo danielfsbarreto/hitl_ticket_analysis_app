@@ -1,0 +1,10 @@
+[project]
+name = "hitl-ticket-analysis-app"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.11.7",
+    "streamlit>=1.47.1",
+]
