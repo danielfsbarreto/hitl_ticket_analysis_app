@@ -6,11 +6,30 @@ from services import MessageSubmissionService
 st.session_state.setdefault("conversation", Conversation())
 
 
-def handle_chat_input_submit():
+def _handle_chat_input_submit():
     user_message = Message(
         role="user", type="text", content=st.session_state["chat_input"]
     )
+    _process_user_message(user_message)
 
+
+def _submit_cta_response(confirm: bool, idx: int):
+    done_key = f"cta_done_{idx}"
+    comment_key = f"cta_comment_{idx}"
+
+    st.session_state[done_key] = True
+    yes_or_no = "Yes" if confirm else "No"
+    comments = st.session_state.get(comment_key, "").strip()
+
+    user_message = Message(
+        role="user",
+        type="text",
+        content=f"{yes_or_no}. {comments}",
+    )
+    _process_user_message(user_message)
+
+
+def _process_user_message(user_message: Message):
     with conversation.container():
         with st.chat_message(user_message.role):
             st.write(user_message.content)
@@ -24,6 +43,47 @@ def handle_chat_input_submit():
 
 
 ## UI COMPONENTS ##
+
+
+@st.fragment
+def _render_message(message: Message):
+    with st.chat_message(message.role):
+        match message.type:
+            case "text":
+                st.write(message.content)
+            case "cta_confirmation":
+                st.write(message.content)
+
+                with st.form(f"cta_form_{i}", clear_on_submit=False):
+                    already_interacted = st.session_state.get(f"cta_done_{i}", False)
+
+                    choice = st.radio(
+                        "Please confirm",
+                        options=["Yes", "No"],
+                        index=1,
+                        key=f"cta_choice_{i}",
+                        horizontal=True,
+                        disabled=already_interacted,
+                    )
+
+                    comment_key = f"cta_comment_{i}"
+                    st.text_area(
+                        "Additional comments (optional)",
+                        key=comment_key,
+                        placeholder="Add any details you think are important...",
+                        height=80,
+                        disabled=already_interacted,
+                    )
+
+                    submitted = st.form_submit_button(
+                        "Submit",
+                        use_container_width=True,
+                        disabled=already_interacted,
+                    )
+                    if submitted:
+                        _submit_cta_response(confirm=(choice == "Yes"), idx=i)
+                        st.rerun()
+
 
 with st.sidebar:
     st.logo(
@@ -59,10 +119,9 @@ with st._bottom:
     st.chat_input(
         key="chat_input",
         placeholder="Interact with your Support Agent here",
-        on_submit=handle_chat_input_submit,
+        on_submit=_handle_chat_input_submit,
     )
 
-for message in st.session_state.conversation.messages:
+for i, message in enumerate(st.session_state.conversation.messages):
     with conversation.container():
-        with st.chat_message(message.role):
-            st.write(message.content)
+        _render_message(message)
